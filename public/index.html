@@ -1,83 +1,353 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Pipe Length Solver</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@600&display=swap" rel="stylesheet">
-    <!-- Link to external CSS -->
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <!-- Firebase SDKs -->
-    <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <!-- Firebase Analytics -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+  <meta charset="UTF-8">
+  <title>Pipe Length Solver</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@600&display=swap" rel="stylesheet">
+  <!-- Link to external CSS file -->
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Firebase SDKs -->
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <!-- Firebase Analytics -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
 </head>
 <body>
 
-<div class="container">
-    <h1>Pipe Length Solver</h1>
+  <div class="container">
+    <h1>Completion Space Out</h1>
 
     <div class="input-section">
-        <div class="input-group">
-            <label for="desired-length">Desired Length of the Waterway:</label>
-            <input type="number" id="desired-length" step="0.000001" min="0" placeholder="e.g., 100.454546" required>
-        </div>
+      <div class="input-group">
+        <label for="desired-length">Desired Length of the Waterway:</label>
+        <!-- Two-digit precision: step="0.01" and placeholder updated -->
+        <input type="number" id="desired-length" step="0.01" min="0" placeholder="e.g., 100.00" required>
+      </div>
     </div>
 
     <div class="pipe-input-section">
-        <h2>Available Pipes</h2>
-        <div id="pipe-inputs">
-            <!-- Pipe inputs will be added here -->
-        </div>
-        <button id="add-pipe-button" aria-label="Add a new pipe input row">+ Add Pipe</button>
+      <h2>Available Pipes</h2>
+      <div id="pipe-inputs">
+        <!-- Pipe inputs will be added here -->
+      </div>
+      <button id="add-pipe-button">+ Add Pipe</button>
     </div>
 
     <div class="button">
-        <button id="find-solution-button">Find Solutions</button>
+      <button id="find-solution-button">Find Solutions</button>
     </div>
 
     <div class="output-section">
-        <h2>Available Pipes:</h2>
-        <table id="available-pipes-table">
-            <thead>
-                <tr>
-                    <th>Length</th>
-                    <th>Number of Pipes</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Available pipes will be displayed here -->
-            </tbody>
-        </table>
+      <h2>Available Pipes:</h2>
+      <table id="available-pipes-table">
+        <thead>
+          <tr>
+            <th>Length</th>
+            <th>Number of Pipes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Available pipes will be displayed here -->
+        </tbody>
+      </table>
 
-        <div id="solution-section">
-            <h2>Top 10 Best Solutions:</h2>
-            <!-- Solutions will be displayed here -->
-            <p id="solution">No solution found yet.</p>
-        </div>
-
-        <!-- History Section -->
-        <div id="history-section">
-            <h2>Calculation History:</h2>
-            <div id="history-list">
-                <!-- History items will be dynamically added here -->
-            </div>
-            <button id="clear-history-button">Clear History</button>
-        </div>
-
-        <!-- Loading Indicator -->
-        <div id="loading-indicator">
-            <img src="https://i.imgur.com/LLF5iyg.gif" alt="Loading..." width="50">
-            <p>Calculating solutions...</p>
-        </div>
+      <div id="solution-section">
+        <h2>Top 10 Best Solutions:</h2>
+        <!-- Solutions will be displayed here -->
+        <p id="solution">No solution found yet.</p>
+      </div>
     </div>
-</div>
+  </div>
 
-<!-- Include Firebase initialization script -->
-<script src="js/firebase-init.js"></script>
-<!-- Include main JavaScript -->
-<script src="js/main.js"></script>
+  <!-- Inline JavaScript -->
+  <script>
+    // Global constant to control the precision: 2 decimal places (i.e. multiply by 100)
+    const SCALE = 100;
+
+    // Firebase initialization
+    const firebaseConfig = {
+      apiKey: "AIzaSyCHjRJHYwbgLZc9xPCAIv5CrtaY_jG0kjA",
+      authDomain: "completion-space-out.firebaseapp.com",
+      projectId: "completion-space-out",
+      storageBucket: "completion-space-out.appspot.com",
+      messagingSenderId: "530448642530",
+      appId: "1:530448642530:web:dc901ec671ed85922049bb",
+      measurementId: "G-D0SXLQ51HN"
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const analytics = firebase.analytics();
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const pipeInputsContainer = document.getElementById('pipe-inputs');
+      const addPipeButton = document.getElementById('add-pipe-button');
+      const findSolutionButton = document.getElementById('find-solution-button');
+      const availablePipesTableBody = document.getElementById('available-pipes-table').querySelector('tbody');
+      const solutionSection = document.getElementById('solution-section');
+      const solutionParagraph = document.getElementById('solution');
+
+      // Initialize with one pipe input row
+      addPipeInputRow();
+
+      addPipeButton.addEventListener('click', addPipeInputRow);
+
+      findSolutionButton.addEventListener('click', function() {
+        const desiredLengthInput = document.getElementById('desired-length').value.trim();
+        const desiredLength = parseFloat(desiredLengthInput);
+
+        if (desiredLengthInput === '' || isNaN(desiredLength) || desiredLength <= 0) {
+          alert('Please enter a valid desired length (a positive number with up to two decimal places).');
+          return;
+        }
+
+        const availablePipes = [];
+
+        // Collect pipe inputs
+        const pipeRows = pipeInputsContainer.getElementsByClassName('pipe-row');
+        if (pipeRows.length === 0) {
+          alert('Please add at least one available pipe.');
+          return;
+        }
+
+        for (let row of pipeRows) {
+          const lengthInput = row.querySelector('.pipe-length').value.trim();
+          const numberInput = row.querySelector('.pipe-number').value.trim();
+
+          const length = parseFloat(lengthInput);
+          const numPipes = parseInt(numberInput);
+
+          if (lengthInput === '' || numberInput === '' || isNaN(length) || isNaN(numPipes) || length <= 0 || numPipes <= 0) {
+            alert('Please enter valid pipe lengths and numbers (positive numbers).');
+            return;
+          }
+
+          availablePipes.push([length, numPipes]);
+        }
+
+        // Display available pipes
+        displayAvailablePipes(availablePipes);
+
+        // Find solutions (up to top 10)
+        const solutions = findTopSolutions(desiredLength, availablePipes, 10);
+
+        // Display solutions
+        displaySolutions(solutions, desiredLength);
+
+        // Log the 'find_solutions' event with desired_length and number_of_pipes
+        analytics.logEvent('find_solutions', { 
+          desired_length: desiredLength, 
+          number_of_pipes: availablePipes.length 
+        });
+      });
+
+      function addPipeInputRow() {
+        const pipeRow = document.createElement('div');
+        pipeRow.className = 'pipe-row';
+
+        const lengthInput = document.createElement('input');
+        lengthInput.type = 'number';
+        lengthInput.step = '0.01';  // two-digit precision
+        lengthInput.min = '0';
+        lengthInput.placeholder = 'Pipe Length (e.g., 25.50)';
+        lengthInput.className = 'pipe-length';
+        lengthInput.required = true;
+
+        const numberInput = document.createElement('input');
+        numberInput.type = 'number';
+        numberInput.min = '1';
+        numberInput.placeholder = 'Number of Pipes';
+        numberInput.className = 'pipe-number';
+        numberInput.required = true;
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.textContent = '🗑️';
+        removeButton.title = 'Remove Pipe';
+        removeButton.addEventListener('click', function() {
+          pipeInputsContainer.removeChild(pipeRow);
+        });
+
+        pipeRow.appendChild(lengthInput);
+        pipeRow.appendChild(numberInput);
+        pipeRow.appendChild(removeButton);
+
+        pipeInputsContainer.appendChild(pipeRow);
+      }
+
+      function displayAvailablePipes(availablePipes) {
+        // Clear existing table rows
+        availablePipesTableBody.innerHTML = '';
+
+        for (let [length, num] of availablePipes) {
+          const row = document.createElement('tr');
+
+          const lengthCell = document.createElement('td');
+          lengthCell.textContent = length.toFixed(2);  // display with 2-digit precision
+
+          const numCell = document.createElement('td');
+          numCell.textContent = num;
+
+          row.appendChild(lengthCell);
+          row.appendChild(numCell);
+
+          availablePipesTableBody.appendChild(row);
+        }
+      }
+
+      function displaySolutions(solutions, desiredLength) {
+        // Clear existing solutions
+        const existingSolutions = document.querySelectorAll('.solution');
+        existingSolutions.forEach(sol => sol.remove());
+
+        if (solutions.length === 0) {
+          solutionParagraph.textContent = 'No solution found.';
+          return;
+        }
+
+        // Clear the "No solution found yet." message
+        solutionParagraph.textContent = '';
+
+        // Iterate through solutions and display them
+        solutions.forEach((solutionObj, index) => {
+          const solutionDiv = document.createElement('div');
+          solutionDiv.className = 'solution';
+
+          const title = document.createElement('h3');
+          title.textContent = `Solution ${index + 1}:`;
+          title.style.color = 'var(--primary-color)';
+          title.style.fontFamily = 'var(--font-secondary)';
+          title.style.fontSize = '1.2rem';
+          title.style.marginBottom = '10px';
+          solutionDiv.appendChild(title);
+
+          const ul = document.createElement('ul');
+          for (let [pipe, count] of Object.entries(solutionObj.pipeCounts)) {
+            const li = document.createElement('li');
+            // Scale down the pipe length before displaying (with 2 decimals)
+            const displayPipeLength = (parseFloat(pipe) / SCALE).toFixed(2);
+            li.textContent = `Pipe Length: ${displayPipeLength} x ${count}`;
+            ul.appendChild(li);
+          }
+          solutionDiv.appendChild(ul);
+
+          const totalLengthP = document.createElement('p');
+          totalLengthP.innerHTML = `<strong>Total Length:</strong> ${solutionObj.totalLength.toFixed(2)}`;
+          solutionDiv.appendChild(totalLengthP);
+
+          const deviationP = document.createElement('p');
+          let deviationClass;
+          let deviationDirection;
+          if (solutionObj.deviationValue > 0) {
+              deviationClass = 'deviation-over';
+              deviationDirection = 'Over';
+          } else if (solutionObj.deviationValue < 0) {
+              deviationClass = 'deviation-under';
+              deviationDirection = 'Under';
+          } else {
+              deviationClass = 'deviation-exact';
+              deviationDirection = 'Exact Match';
+          }
+          deviationP.innerHTML = `<strong>Deviation from Desired Length:</strong> <span class="${deviationClass}">${Math.abs(solutionObj.deviationValue).toFixed(2)}</span> (${deviationDirection})`;
+          solutionDiv.appendChild(deviationP);
+
+          solutionSection.appendChild(solutionDiv);
+        });
+      }
+
+      function findTopSolutions(desiredLength, availablePipes, topN) {
+        // Convert desired length to an integer (in hundredths)
+        const desiredLengthInt = Math.round(desiredLength * SCALE);
+
+        // Clone available pipes and scale to integers (using SCALE for 2-digit precision)
+        const pipes = availablePipes.map(([length, num]) => [Math.round(length * SCALE), num]);
+
+        // Sort pipes in descending order of length
+        pipes.sort((a, b) => b[0] - a[0]);
+
+        // Initialize remaining stock
+        const remainingStock = {};
+        pipes.forEach(([length, num]) => {
+          remainingStock[length] = num;
+        });
+
+        const solutions = [];
+
+        // Backtracking function
+        function backtrack(currentSolution, currentLength, startIndex) {
+          // Stop if we already have enough solutions
+          if (solutions.length >= topN) {
+            return;
+          }
+
+          // Calculate deviation
+          const deviation = desiredLengthInt - currentLength;
+          if (deviation < 0) {
+            // Exceeded desired length
+            return;
+          }
+
+          // If current solution is valid (avoid the empty solution)
+          if (currentLength > 0) {
+            const deviationValue = currentLength - desiredLengthInt;
+            solutions.push({
+              pipeCounts: { ...currentSolution },
+              totalLength: currentLength / SCALE,
+              deviationValue: deviationValue / SCALE
+            });
+            if (solutions.length >= topN) {
+              return;
+            }
+          }
+
+          // Try adding more pipes starting at index startIndex
+          for (let i = startIndex; i < pipes.length; i++) {
+            const [pipeLength, pipeCount] = pipes[i];
+
+            if (remainingStock[pipeLength] > 0 && (currentLength + pipeLength) <= desiredLengthInt) {
+              // Choose the pipe
+              remainingStock[pipeLength] -= 1;
+              currentSolution[pipeLength] = (currentSolution[pipeLength] || 0) + 1;
+
+              // Recurse
+              backtrack(currentSolution, currentLength + pipeLength, i);
+
+              // Backtrack
+              remainingStock[pipeLength] += 1;
+              currentSolution[pipeLength] -= 1;
+              if (currentSolution[pipeLength] === 0) {
+                delete currentSolution[pipeLength];
+              }
+            }
+          }
+        }
+
+        // Start backtracking with an empty solution
+        backtrack({}, 0, 0);
+
+        // Sort solutions by absolute deviation
+        solutions.sort((a, b) => Math.abs(a.deviationValue) - Math.abs(b.deviationValue));
+
+        // Remove duplicate solutions if any
+        const uniqueSolutions = [];
+        const seen = new Set();
+        for (let sol of solutions) {
+          const key = Object.entries(sol.pipeCounts)
+            .sort()
+            .map(([k, v]) => `${k}:${v}`)
+            .join('|');
+          if (!seen.has(key)) {
+            uniqueSolutions.push(sol);
+            seen.add(key);
+          }
+          if (uniqueSolutions.length >= topN) {
+            break;
+          }
+        }
+
+        return uniqueSolutions;
+      }
+    });
+  </script>
 </body>
 </html>
