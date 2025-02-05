@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const row = document.createElement('tr');
 
             const lengthCell = document.createElement('td');
-            lengthCell.textContent = length.toFixed(6);
+            lengthCell.textContent = length.toFixed(2);
 
             const numCell = document.createElement('td');
             numCell.textContent = num;
@@ -172,14 +172,14 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let [pipe, count] of Object.entries(solutionObj.pipeCounts)) {
                 const li = document.createElement('li');
                 // Scale down the pipe length before displaying
-                const displayPipeLength = (parseFloat(pipe) / SCALE).toFixed(6);
+                const displayPipeLength = (parseFloat(pipe) / SCALE).toFixed(2);
                 li.textContent = `Pipe Length: ${displayPipeLength} x ${count}`;
                 ul.appendChild(li);
             }
             solutionDiv.appendChild(ul);
 
             const totalLengthP = document.createElement('p');
-            totalLengthP.innerHTML = `<strong>Total Length:</strong> ${solutionObj.totalLength.toFixed(6)}`;
+            totalLengthP.innerHTML = `<strong>Total Length:</strong> ${solutionObj.totalLength.toFixed(2)}`;
             solutionDiv.appendChild(totalLengthP);
 
             const deviationP = document.createElement('p');
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 deviationDirection = 'Exact Match';
             }
 
-            deviationP.innerHTML = `<strong>Deviation from Desired Length:</strong> <span class="${deviationClass}">${Math.abs(solutionObj.deviationValue).toFixed(6)}</span> (${deviationDirection})`;
+            deviationP.innerHTML = `<strong>Deviation from Desired Length:</strong> <span class="${deviationClass}">${Math.abs(solutionObj.deviationValue).toFixed(2)}</span> (${deviationDirection})`;
             solutionDiv.appendChild(deviationP);
 
             solutionSection.appendChild(solutionDiv);
@@ -299,19 +299,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const historyEntry = {
             timestamp,
-            desiredLength: desiredLength.toFixed(6),
+            desiredLength: desiredLength.toFixed(2),
             availablePipes: availablePipes.map(([length, num]) => ({
-                length: length.toFixed(6),
+                length: length.toFixed(2),
                 number: num
             })),
             solutions: solutions.map((sol, index) => ({
                 solutionNumber: index + 1,
                 pipeCounts: Object.entries(sol.pipeCounts).map(([pipe, count]) => ({
-                    pipeLength: (parseFloat(pipe) / SCALE).toFixed(6),
+                    pipeLength: (parseFloat(pipe) / SCALE).toFixed(2),
                     count
                 })),
-                totalLength: sol.totalLength.toFixed(6),
-                deviationValue: sol.deviationValue.toFixed(6),
+                totalLength: sol.totalLength.toFixed(2),
+                deviationValue: sol.deviationValue.toFixed(2),
                 deviationDirection: sol.deviationValue > 0 ? 'Over' :
                                       sol.deviationValue < 0 ? 'Under' : 'Exact Match'
             }))
